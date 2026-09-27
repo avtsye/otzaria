@@ -567,58 +567,49 @@ class _CustomTitleBarState extends State<CustomTitleBar> {
       (b) => b.state.showNewTabButton,
     );
 
-    // Measure the whole available strip, but do not let the tabs consume it
-    // when only a few tabs are open. Each tab is capped at _kTabMaxWidth, so
-    // the visible strip must shrink to the sum of the actual tab widths. The
-    // "+" then sits immediately after the last tab; only the remaining space
-    // is left empty for dragging the window.
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        final buttonWidth = showNewTabButton ? 32.0 : 0.0;
-        final availableForTabs = math.max(
-          0.0,
-          constraints.maxWidth - buttonWidth,
-        );
-        final widths = _computeTabWidths(
-          availableForTabs,
-          state.tabs.length,
-        );
-        final tabsWidth = math.min(
-          availableForTabs,
-          widths.selected +
-              widths.unselected * math.max(0, state.tabs.length - 1),
-        );
-
-        if (_tabsAreaWidth == null ||
-            (_tabsAreaWidth! - tabsWidth).abs() > 0.5) {
-          WidgetsBinding.instance.addPostFrameCallback((_) {
-            if (mounted) setState(() => _tabsAreaWidth = tabsWidth);
-          });
-        }
-
-        return Row(
-          children: [
-            SizedBox(width: tabsWidth, child: _buildTabsContent(state)),
-            if (showNewTabButton)
-              MetaData(
-                metaData: _kTabHitMarker,
-                behavior: HitTestBehavior.opaque,
-                child: _buildOpenLibraryButton(context),
-              ),
-            // The unused title-bar area remains draggable and keeps the
-            // tabs/+ group anchored together instead of pushing "+" away.
-            Expanded(
-              child: GestureDetector(
-                behavior: HitTestBehavior.translucent,
-                onPanStart: (_) =>
-                    AppWindowScope.controllerOf(context).startDragging(),
-                onDoubleTap: _onTabsAreaDoubleTap,
-                child: const SizedBox.expand(),
-              ),
+    // LayoutBuilder only measures the available strip. The tab widgets
+    // themselves stay outside its builder: several tabs contain
+    // Tooltip/OverlayPortal/GlobalKey state, and rebuilding those while layout
+    // is in progress can trigger "_RenderLayoutBuilder was mutated".
+    return Stack(
+      children: [
+        LayoutBuilder(
+          builder: (context, constraints) {
+            final reservedForPlus = showNewTabButton ? 32.0 : 0.0;
+            final availableForTabs = math.max(
+              0.0,
+              constraints.maxWidth - reservedForPlus,
+            );
+            final widths = _computeTabWidths(
+              availableForTabs,
+              state.tabs.length,
+            );
+            final visibleTabsWidth = math.min(
+              availableForTabs,
+              widths.selected +
+                  widths.unselected * math.max(0, state.tabs.length - 1),
+            );
+            if (_tabsAreaWidth == null ||
+                (_tabsAreaWidth! - visibleTabsWidth).abs() > 0.5) {
+              WidgetsBinding.instance.addPostFrameCallback((_) {
+                if (mounted) setState(() => _tabsAreaWidth = visibleTabsWidth);
+              });
+            }
+            return const SizedBox.shrink();
+          },
+        ),
+        _buildTabsContent(state),
+        if (showNewTabButton)
+          PositionedDirectional(
+            start: _tabsAreaWidth ?? 0,
+            top: 4,
+            child: MetaData(
+              metaData: _kTabHitMarker,
+              behavior: HitTestBehavior.opaque,
+              child: _buildOpenLibraryButton(context),
             ),
-          ],
-        );
-      },
+          ),
+      ],
     );
   }
 
