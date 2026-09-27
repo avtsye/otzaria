@@ -2,7 +2,7 @@
   "id": "new-tab-home",
   "name": "דף הבית",
   "version": "1.0.0",
-  "minAppVersion": "0.9.99",
+  "minAppVersion": "0.9.97",
   "entrypoint": "index.html",
   "permissions": [
     "navigation.write",
