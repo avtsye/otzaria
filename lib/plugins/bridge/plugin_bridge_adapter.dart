@@ -758,7 +758,6 @@ class PluginBridgeAdapter {
     final key = (pluginId: plugin.pluginId, instanceId: instanceId);
     ContextMenuRegistry.instance.removeInstance(key);
     PluginToolbarRegistry.instance.removeInstance(key);
-    PluginNewTabPageRegistry.instance.removeInstance(key);
     PluginUnsavedChangesRegistry.instance.removeInstance(key);
     _highlightRegistry.removeInstance(key);
     for (final cancel in _activeSearchStreams.values) {
@@ -6362,15 +6361,9 @@ class PluginBridgeAdapter {
           throw Exception('error.invalid_params: enabled must be boolean');
         }
         if (enabled == false) {
-          PluginNewTabPageRegistry.instance.remove(
-            plugin.pluginId,
-            instanceId: instanceId,
-          );
+          PluginNewTabPageRegistry.instance.remove(plugin.pluginId);
         } else {
-          PluginNewTabPageRegistry.instance.register(
-            plugin.pluginId,
-            instanceId: instanceId,
-          );
+          PluginNewTabPageRegistry.instance.register(plugin.pluginId);
         }
         return true;
       case 'openSelf':
