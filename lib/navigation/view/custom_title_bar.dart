@@ -45,6 +45,7 @@ import 'package:otzaria/history/bloc/history_event.dart';
 import 'package:otzaria/library/bloc/library_bloc.dart';
 import 'package:otzaria/library/bloc/library_state.dart';
 import 'package:otzaria/plugins/bloc/plugin_system_bloc.dart';
+import 'package:otzaria/plugins/services/plugin_new_tab_page_registry.dart';
 import 'package:otzaria/settings/settings_exports.dart';
 import 'package:otzaria/tour/tour_target_keys.dart';
 import 'package:otzaria/update/my_update_widget.dart';
