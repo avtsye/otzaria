@@ -517,7 +517,7 @@ const Map<String, String> _methodMinVersion = {
   'app.openUrl': '0.9.95',
   // 0.9.96
   'plugin.openSelf': '0.9.96',
-  'plugin.setNewTabPage': '0.9.99',
+  'plugin.setNewTabPage': '0.9.97',
   'plugin.openOther': '0.9.97',
   'library.listBookAltStructures': '0.9.96',
   'library.getBookAltToc': '0.9.96',
