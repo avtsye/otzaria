@@ -536,7 +536,9 @@ class _CustomTitleBarState extends State<CustomTitleBar> {
           children: [
             TabSearchButton(style: _kIconButtonStyle),
             Expanded(child: _buildScrollableTabsArea(state)),
-            _buildOpenLibraryButton(context),
+            if (context.select<SettingsBloc, bool>((b) => b.state.showNewTabButton))
+              if (context.select<SettingsBloc, bool>((b) => b.state.showNewTabButton))
+                _buildOpenLibraryButton(context),
             const SizedBox(width: 8),
             _buildReadingSettingsButton(context),
           ],
