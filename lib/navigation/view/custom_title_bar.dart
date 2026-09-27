@@ -536,6 +536,7 @@ class _CustomTitleBarState extends State<CustomTitleBar> {
           children: [
             TabSearchButton(style: _kIconButtonStyle),
             Expanded(child: _buildScrollableTabsArea(state)),
+            _buildOpenLibraryButton(context),
             const SizedBox(width: 8),
             _buildReadingSettingsButton(context),
           ],
@@ -705,6 +706,17 @@ class _CustomTitleBarState extends State<CustomTitleBar> {
     );
   }
 
+  Widget _buildOpenLibraryButton(BuildContext context) {
+    return IconButton(
+      icon: const Icon(FluentIcons.add_24_regular, size: 18),
+      tooltip: context.settingsText('פתיחת ספר'),
+      onPressed: () => context.read<NavigationBloc>().add(
+        const NavigateToScreen(Screen.library),
+      ),
+      style: _kIconButtonStyle,
+    );
+  }
+
   Widget _buildReadingSettingsButton(BuildContext context) {
     return DragToMoveArea(
       child: Padding(
@@ -734,7 +746,12 @@ class _CustomTitleBarState extends State<CustomTitleBar> {
         return Container(
           color: AppSurfaces.readerBackground(context),
           height: _kTopBarHeight,
-          child: _buildScrollableTabsArea(state),
+          child: Row(
+            children: [
+              Expanded(child: _buildScrollableTabsArea(state)),
+              _buildOpenLibraryButton(context),
+            ],
+          ),
         );
       },
     );
