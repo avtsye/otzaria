@@ -102,6 +102,7 @@ import 'package:otzaria/plugins/services/context_menu_registry.dart';
 import 'package:otzaria/plugins/services/plugin_toolbar_registry.dart';
 import 'package:otzaria/plugins/services/plugin_unsaved_changes_registry.dart';
 import 'package:otzaria/plugins/services/plugin_page_launcher.dart';
+import 'package:otzaria/plugins/services/plugin_new_tab_page_registry.dart';
 import 'package:flutter_inappwebview/flutter_inappwebview.dart';
 import 'package:otzaria/plugins/services/plugin_print_service.dart';
 import 'package:otzaria/plugins/services/plugin_runtime_dispatcher.dart';
@@ -757,6 +758,7 @@ class PluginBridgeAdapter {
     final key = (pluginId: plugin.pluginId, instanceId: instanceId);
     ContextMenuRegistry.instance.removeInstance(key);
     PluginToolbarRegistry.instance.removeInstance(key);
+    PluginNewTabPageRegistry.instance.removeInstance(key);
     PluginUnsavedChangesRegistry.instance.removeInstance(key);
     _highlightRegistry.removeInstance(key);
     for (final cancel in _activeSearchStreams.values) {
@@ -6354,6 +6356,23 @@ class PluginBridgeAdapter {
               },
             )
             .toList();
+      case 'setNewTabPage':
+        final enabled = args['enabled'];
+        if (enabled != null && enabled is! bool) {
+          throw Exception('error.invalid_params: enabled must be boolean');
+        }
+        if (enabled == false) {
+          PluginNewTabPageRegistry.instance.remove(
+            plugin.pluginId,
+            instanceId: instanceId,
+          );
+        } else {
+          PluginNewTabPageRegistry.instance.register(
+            plugin.pluginId,
+            instanceId: instanceId,
+          );
+        }
+        return true;
       case 'openSelf':
         PluginPageLauncher.instance.open(
           plugin.pluginId,
