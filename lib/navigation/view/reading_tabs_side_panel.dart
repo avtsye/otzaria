@@ -4,6 +4,7 @@ import 'package:fluentui_system_icons/fluentui_system_icons.dart';
 import 'package:otzaria/navigation/bloc/navigation_bloc.dart';
 import 'package:otzaria/navigation/bloc/navigation_event.dart';
 import 'package:otzaria/navigation/bloc/navigation_state.dart';
+import 'package:otzaria/plugins/services/plugin_new_tab_page_registry.dart';
 import 'package:otzaria/navigation/view/tab_search_menu.dart';
 import 'package:otzaria/navigation/view/vertical_reading_tab_strip.dart';
 import 'package:otzaria/settings/engine/settings_bloc.dart';
@@ -172,9 +173,7 @@ class _ReadingTabsSidePanelState extends State<ReadingTabsSidePanel> {
         visualDensity: VisualDensity.compact,
         tooltip: context.settingsText('פתיחת ספר'),
         icon: const Icon(FluentIcons.add_24_regular),
-        onPressed: () => context.read<NavigationBloc>().add(
-          const NavigateToScreen(Screen.library),
-        ),
+        onPressed: () => PluginNewTabPageRegistry.instance.open(context),
       ),
     ];
 
