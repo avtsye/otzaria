@@ -133,6 +133,7 @@ class _ReadingTabsSidePanelState extends State<ReadingTabsSidePanel> {
               child: Column(
                 children: [
                   _buildHeader(context, collapsed: collapsed),
+                  const Divider(height: 1),
                   Expanded(
                     child: KeyedSubtree(
                       key: tourReadingTabsSideTargetKey,
