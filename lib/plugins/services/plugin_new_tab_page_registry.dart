@@ -3,34 +3,32 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:otzaria/navigation/bloc/navigation_bloc.dart';
 import 'package:otzaria/navigation/bloc/navigation_event.dart';
 import 'package:otzaria/navigation/bloc/navigation_state.dart';
-import 'package:otzaria/plugins/plugin_constants.dart';
 import 'package:otzaria/plugins/services/plugin_page_launcher.dart';
 
 /// Controls what the reader's "+" (new tab) button opens.
 ///
-/// With no plugin contribution the built-in library is always used. A plugin
-/// may register its own page as the target; registrations are tied to a live
-/// plugin instance and disappear when that instance is disposed.
+/// Registration belongs to the plugin, not to one WebView instance. This is
+/// intentional: a startup/background instance may register the target and then
+/// be disposed, while the "+" must continue to open the plugin's visible page.
+/// A later registration wins; disabling the registration restores the library.
 class PluginNewTabPageRegistry {
   static final PluginNewTabPageRegistry instance = PluginNewTabPageRegistry._();
   PluginNewTabPageRegistry._();
 
-  final Map<PluginInstanceKey, int> _registrations = {};
+  final Map<String, int> _registrations = {};
   int _sequence = 0;
 
-  void register(String pluginId, {required String instanceId}) {
-    _registrations[(pluginId: pluginId, instanceId: instanceId)] = ++_sequence;
+  void register(String pluginId) {
+    _registrations[pluginId] = ++_sequence;
   }
 
-  void remove(String pluginId, {required String instanceId}) {
-    _registrations.remove((pluginId: pluginId, instanceId: instanceId));
+  void remove(String pluginId) {
+    _registrations.remove(pluginId);
   }
-
-  void removeInstance(PluginInstanceKey key) => _registrations.remove(key);
 
   String? get activePluginId {
     if (_registrations.isEmpty) return null;
-    PluginInstanceKey? selected;
+    String? selected;
     var newest = -1;
     for (final entry in _registrations.entries) {
       if (entry.value > newest) {
@@ -38,7 +36,7 @@ class PluginNewTabPageRegistry {
         selected = entry.key;
       }
     }
-    return selected?.pluginId;
+    return selected;
   }
 
   /// Opens the registered plugin page, or the library when none is registered.
