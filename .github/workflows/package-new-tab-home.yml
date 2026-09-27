@@ -1,0 +1,26 @@
+name: Package New Tab Home Plugin
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - ".github/workflows/package-new-tab-home.yml"
+permissions:
+  contents: write
+jobs:
+  package:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: dev
+      - name: Package plugin
+        run: |
+          cd examples/new-tab-home
+          zip -9 -j new-tab-home-1.0.0.otzplugin manifest.json index.html main.js
+      - name: Commit packaged plugin
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add examples/new-tab-home/new-tab-home-1.0.0.otzplugin
+          git diff --cached --quiet || git commit -m "Add packaged new-tab-home plugin"
+          git push origin HEAD:dev
