@@ -1,0 +1,12 @@
+{
+  "id": "new-tab-home",
+  "name": "דף הבית",
+  "version": "1.0.0",
+  "minAppVersion": "0.9.99",
+  "entrypoint": "index.html",
+  "permissions": [
+    "navigation.write",
+    "library.books.read",
+    "reader.open"
+  ]
+}
