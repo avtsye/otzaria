@@ -710,9 +710,7 @@ class _CustomTitleBarState extends State<CustomTitleBar> {
     return IconButton(
       icon: const Icon(FluentIcons.add_24_regular, size: 18),
       tooltip: context.settingsText('פתיחת ספר'),
-      onPressed: () => context.read<NavigationBloc>().add(
-        const NavigateToScreen(Screen.library),
-      ),
+      onPressed: () => PluginNewTabPageRegistry.instance.open(context),
       style: _kIconButtonStyle,
     );
   }
