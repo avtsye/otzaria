@@ -4,6 +4,7 @@ on:
   push:
     paths:
       - ".github/workflows/package-new-tab-home.yml"
+      - "examples/new-tab-home/**"
 permissions:
   contents: write
 jobs:
@@ -16,11 +17,11 @@ jobs:
       - name: Package plugin
         run: |
           cd examples/new-tab-home
-          zip -9 -j new-tab-home-1.0.0.otzplugin manifest.json index.html main.js
+          zip -9 -j new-tab-home-1.1.0.otzplugin manifest.json index.html main.js
       - name: Commit packaged plugin
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add examples/new-tab-home/new-tab-home-1.0.0.otzplugin
+          git add examples/new-tab-home/new-tab-home-1.1.0.otzplugin
           git diff --cached --quiet || git commit -m "Add packaged new-tab-home plugin"
           git push origin HEAD:dev
