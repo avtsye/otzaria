@@ -537,9 +537,6 @@ class _CustomTitleBarState extends State<CustomTitleBar> {
           children: [
             TabSearchButton(style: _kIconButtonStyle),
             Expanded(child: _buildScrollableTabsArea(state)),
-            if (context.select<SettingsBloc, bool>((b) => b.state.showNewTabButton))
-              if (context.select<SettingsBloc, bool>((b) => b.state.showNewTabButton))
-                _buildOpenLibraryButton(context),
             const SizedBox(width: 8),
             _buildReadingSettingsButton(context),
           ],
@@ -566,24 +563,40 @@ class _CustomTitleBarState extends State<CustomTitleBar> {
   }
 
   Widget _buildScrollableTabsArea(TabsState state) {
-    // LayoutBuilder נפרד מודד רק את הרוחב (ילדו SizedBox ריק) ושומר אותו ב-state;
-    // הרשימה — שמכילה Tooltip/OverlayPortal ומפתחות גלובליים — נבנית כאח שלו,
-    // לא תחתיו. אחרת רינדור-מחדש של טאב בזמן layout מפעיל את ה-OverlayPortal
-    // וזורק "_RenderLayoutBuilder was mutated".
-    return Stack(
+    // כפתור "+" הוא חלק מרצועת הכרטיסיות עצמה, כמו בדפדפן: הוא יושב מיד
+    // אחרי הכרטיסייה האחרונה ולא באזור כפתורי החלון. אזור הכרטיסיות מקבל את
+    // יתרת הרוחב, כך שחישוב רוחבי הכרטיסיות כבר מתחשב במקום ששמור לכפתור.
+    final showNewTabButton = context.select<SettingsBloc, bool>(
+      (b) => b.state.showNewTabButton,
+    );
+
+    return Row(
       children: [
-        LayoutBuilder(
-          builder: (context, constraints) {
-            final w = constraints.maxWidth;
-            if (_tabsAreaWidth == null || (_tabsAreaWidth! - w).abs() > 0.5) {
-              WidgetsBinding.instance.addPostFrameCallback((_) {
-                if (mounted) setState(() => _tabsAreaWidth = w);
-              });
-            }
-            return const SizedBox.shrink();
-          },
+        Expanded(
+          child: Stack(
+            children: [
+              LayoutBuilder(
+                builder: (context, constraints) {
+                  final w = constraints.maxWidth;
+                  if (_tabsAreaWidth == null ||
+                      (_tabsAreaWidth! - w).abs() > 0.5) {
+                    WidgetsBinding.instance.addPostFrameCallback((_) {
+                      if (mounted) setState(() => _tabsAreaWidth = w);
+                    });
+                  }
+                  return const SizedBox.shrink();
+                },
+              ),
+              _buildTabsContent(state),
+            ],
+          ),
         ),
-        _buildTabsContent(state),
+        if (showNewTabButton)
+          MetaData(
+            metaData: _kTabHitMarker,
+            behavior: HitTestBehavior.opaque,
+            child: _buildOpenLibraryButton(context),
+          ),
       ],
     );
   }
@@ -750,7 +763,6 @@ class _CustomTitleBarState extends State<CustomTitleBar> {
           child: Row(
             children: [
               Expanded(child: _buildScrollableTabsArea(state)),
-              _buildOpenLibraryButton(context),
             ],
           ),
         );
