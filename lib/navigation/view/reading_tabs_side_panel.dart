@@ -169,7 +169,8 @@ class _ReadingTabsSidePanelState extends State<ReadingTabsSidePanel> {
     final buttons = [
       _buildCollapseButton(context, collapsed: collapsed),
       const TabSearchButton(),
-      IconButton(
+      if (context.select<SettingsBloc, bool>((b) => b.state.showNewTabButton))
+        IconButton(
         iconSize: 18,
         visualDensity: VisualDensity.compact,
         tooltip: context.settingsText('פתיחת ספר'),
