@@ -169,13 +169,20 @@ class _ReadingTabsSidePanelState extends State<ReadingTabsSidePanel> {
     final buttons = [
       _buildCollapseButton(context, collapsed: collapsed),
       const TabSearchButton(),
-      if (context.select<SettingsBloc, bool>((b) => b.state.showNewTabButton))
-        IconButton(
-        iconSize: 18,
-        visualDensity: VisualDensity.compact,
-        tooltip: context.settingsText('פתיחת ספר'),
-        icon: const Icon(FluentIcons.add_24_regular),
-        onPressed: () => PluginNewTabPageRegistry.instance.open(context),
+      ListenableBuilder(
+        listenable: PluginNewTabPageRegistry.instance,
+        builder: (context, _) {
+          if (!PluginNewTabPageRegistry.instance.hasActiveRegistration) {
+            return const SizedBox.shrink();
+          }
+          return IconButton(
+            iconSize: 18,
+            visualDensity: VisualDensity.compact,
+            tooltip: context.settingsText('כרטיסייה חדשה'),
+            icon: const Icon(FluentIcons.add_24_regular),
+            onPressed: PluginNewTabPageRegistry.instance.open,
+          );
+        },
       ),
     ];
 
