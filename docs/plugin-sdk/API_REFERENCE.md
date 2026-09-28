@@ -203,6 +203,7 @@ if (response.success) {
 | `workspace.switch` | 0.9.97 |
 | `navigation.goTo` | 0.9.89 |
 | `plugin.openSelf` | 0.9.96 |
+| `plugin.setNewTabPage` | 0.9.97 |
 | `plugin.openOther` | 0.9.97 |
 | `plugin.backgroundDone` | 0.9.97 |
 | `plugin.listInstalled` | 0.9.97 |
@@ -2129,6 +2130,28 @@ Otzaria.on('plugin.page_opened', (data) => {
 **הערות:**
 - אם דף התוסף עדיין לא נטען, האירוע יישלח מיד אחרי ה-boot שלו — אין צורך בהמתנה מיוחדת.
 - לפתיחת תוסף אחר יש API נפרד — `plugin.openOther`.
+
+---
+
+### `plugin.setNewTabPage`
+**הרשאה:** `navigation.write` | **מגרסה:** 0.9.97
+
+רושם את דף התוסף כיעד של לחצן `+` בשורת הכרטיסיות. הלחצן אינו מוצג
+כברירת מחדל; הוא מופיע רק כאשר לפחות תוסף אחד רשם את עצמו דרך API זה.
+
+```javascript
+await Otzaria.call('plugin.setNewTabPage', { enabled: true });
+```
+
+כדי לבטל את הרישום:
+
+```javascript
+await Otzaria.call('plugin.setNewTabPage', { enabled: false });
+```
+
+אם כמה תוספים נרשמו, הרישום האחרון הוא היעד הפעיל. השבתה, הסרה או ניתוק של
+תוסף מסירים את הרישום שלו אוטומטית. לחיצה על `+` פותחת את דף התוסף ושולחת
+`plugin.page_opened` עם `source: 'newTabButton'`.
 
 ---
 

@@ -1360,10 +1360,14 @@ export interface OtzariaEventMap {
     param: unknown;
   };
   /**
-   * The plugin page was opened via `plugin.openSelf`, or by another plugin via
-   * `plugin.openOther` — in which case `openedBy` holds that plugin's id.
+   * The plugin page was opened via `plugin.openSelf`, by another plugin via
+   * `plugin.openOther`, or from the API-controlled new-tab button.
    */
-  'plugin.page_opened': { param: unknown; openedBy?: string };
+  'plugin.page_opened': {
+    param?: unknown;
+    openedBy?: string;
+    source?: 'newTabButton';
+  };
   /** A checked static search row routed submission to its owning plugin. */
   'search.requested': { itemId: string; request: SearchQueryParams };
   /** External-search page request sent only to the plugin owning `provider`. */
@@ -2005,6 +2009,7 @@ export type OtzariaMethod =
   | 'fs.deleteFile'
   | 'shortcut.create'
   | 'plugin.openSelf'
+  | 'plugin.setNewTabPage'
   | 'plugin.openOther'
   /** @internal חנות התוספים בלבד — לא מתועד ב-API_REFERENCE ואינו חוזה יציב. */
   | 'plugin.requestInstall'
@@ -2084,6 +2089,17 @@ export interface OtzariaGlobal {
   call(
     method: 'fs.revokeFolder',
     payload: { folderToken: string }
+  ): Promise<OtzariaResponse<boolean>>;
+
+  /**
+   * Registers this plugin page as the target of the reader "+" button.
+   * The button is hidden until a plugin enables it. Pass { enabled: false }
+   * to unregister this plugin and hide the button when no registration remains.
+   * Requires navigation.write.
+   */
+  call(
+    method: 'plugin.setNewTabPage',
+    payload?: { enabled?: boolean }
   ): Promise<OtzariaResponse<boolean>>;
 
   /** מחזיר רשימה של כל התוספים המותקנים. */

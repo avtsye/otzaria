@@ -89,6 +89,7 @@ const Map<String, String> apiCallToPermissionHint = {
 
   // plugin.*
   'plugin.openSelf': 'navigation.write',
+  'plugin.setNewTabPage': 'navigation.write',
   'plugin.openOther': pluginOpenOtherPermission,
 
   // reader.* (new APIs)
