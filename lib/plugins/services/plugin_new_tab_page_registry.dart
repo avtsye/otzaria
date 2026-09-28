@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/widgets.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:otzaria/navigation/bloc/navigation_bloc.dart';
@@ -11,7 +12,7 @@ import 'package:otzaria/plugins/services/plugin_page_launcher.dart';
 /// intentional: a startup/background instance may register the target and then
 /// be disposed, while the "+" must continue to open the plugin's visible page.
 /// A later registration wins; disabling the registration restores the library.
-class PluginNewTabPageRegistry {
+class PluginNewTabPageRegistry extends ChangeNotifier {
   static final PluginNewTabPageRegistry instance = PluginNewTabPageRegistry._();
   PluginNewTabPageRegistry._();
 
@@ -20,11 +21,16 @@ class PluginNewTabPageRegistry {
 
   void register(String pluginId) {
     _registrations[pluginId] = ++_sequence;
+    notifyListeners();
   }
 
   void remove(String pluginId) {
-    _registrations.remove(pluginId);
+    if (_registrations.remove(pluginId) != null) {
+      notifyListeners();
+    }
   }
+
+  bool get hasActiveRegistration => _registrations.isNotEmpty;
 
   String? get activePluginId {
     if (_registrations.isEmpty) return null;
@@ -39,7 +45,8 @@ class PluginNewTabPageRegistry {
     return selected;
   }
 
-  /// Opens the registered plugin page, or the library when none is registered.
+  /// Opens the registered plugin page. The button is hidden when none is registered,
+  /// so the library fallback is kept only as a defensive no-op path.
   void open(BuildContext context) {
     final pluginId = activePluginId;
     if (pluginId == null) {
