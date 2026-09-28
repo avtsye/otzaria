@@ -123,7 +123,6 @@ class SettingsRepository {
   static const String keyCompactMenuMode = 'key-compact-menu-mode';
 
   /// מיקום רצועת כרטיסיות העיון: `top` בשורת הכותרת, `side` בעמודה אנכית.
-  static const String keyShowNewTabButton = 'key-show-new-tab-button';
   static const String keyReadingTabsPlacement = 'key-reading-tabs-placement';
   static const String keyReadingTabsColumnWidth =
       'key-reading-tabs-column-width';
@@ -284,7 +283,6 @@ class SettingsRepository {
     keyEnableHtmlLinks,
     keyPersonalNotesCollapsedByDefault,
     keyCompactMenuMode,
-    keyShowNewTabButton,
     keyReadingTabsPlacement,
     keyReadingTabsColumnWidth,
     keyReadingTabsColumnCollapsed,
@@ -502,10 +500,6 @@ class SettingsRepository {
       'compactMenuMode': _settings.getValue<bool>(
         keyCompactMenuMode,
         defaultValue: false,
-      ),
-      'showNewTabButton': _settings.getValue<bool>(
-        keyShowNewTabButton,
-        defaultValue: true,
       ),
       'readingTabsPlacement': _settings.getValue<String>(
         keyReadingTabsPlacement,
@@ -848,9 +842,6 @@ class SettingsRepository {
     await _settings.setValue(keyCompactMenuMode, value);
   }
 
-  Future<void> updateShowNewTabButton(bool value) async {
-    await _settings.setValue(keyShowNewTabButton, value);
-  }
 
   Future<void> updateReadingTabsPlacement(String value) async {
     await _settings.setValue(keyReadingTabsPlacement, value);
