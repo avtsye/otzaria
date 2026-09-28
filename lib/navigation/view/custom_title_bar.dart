@@ -563,53 +563,53 @@ class _CustomTitleBarState extends State<CustomTitleBar> {
   }
 
   Widget _buildScrollableTabsArea(TabsState state) {
-    final showNewTabButton = context.select<SettingsBloc, bool>(
-      (b) => b.state.showNewTabButton,
-    );
+    final registry = PluginNewTabPageRegistry.instance;
+    return ListenableBuilder(
+      listenable: registry,
+      builder: (context, _) {
+        final showNewTabButton = registry.hasActiveRegistration;
 
-    // LayoutBuilder only measures the available strip. The tab widgets
-    // themselves stay outside its builder: several tabs contain
-    // Tooltip/OverlayPortal/GlobalKey state, and rebuilding those while layout
-    // is in progress can trigger "_RenderLayoutBuilder was mutated".
-    return Stack(
-      children: [
-        LayoutBuilder(
-          builder: (context, constraints) {
-            final reservedForPlus = showNewTabButton ? 32.0 : 0.0;
-            final availableForTabs = math.max(
-              0.0,
-              constraints.maxWidth - reservedForPlus,
-            );
-            final widths = _computeTabWidths(
-              availableForTabs,
-              state.tabs.length,
-            );
-            final visibleTabsWidth = math.min(
-              availableForTabs,
-              widths.selected +
-                  widths.unselected * math.max(0, state.tabs.length - 1),
-            );
-            if (_tabsAreaWidth == null ||
-                (_tabsAreaWidth! - visibleTabsWidth).abs() > 0.5) {
-              WidgetsBinding.instance.addPostFrameCallback((_) {
-                if (mounted) setState(() => _tabsAreaWidth = visibleTabsWidth);
-              });
-            }
-            return const SizedBox.shrink();
-          },
-        ),
-        _buildTabsContent(state),
-        if (showNewTabButton)
-          PositionedDirectional(
-            start: _tabsAreaWidth ?? 0,
-            top: 4,
-            child: MetaData(
-              metaData: _kTabHitMarker,
-              behavior: HitTestBehavior.opaque,
-              child: _buildOpenLibraryButton(context),
+        return Stack(
+          children: [
+            LayoutBuilder(
+              builder: (context, constraints) {
+                final reservedForPlus = showNewTabButton ? 32.0 : 0.0;
+                final availableForTabs = math.max(
+                  0.0,
+                  constraints.maxWidth - reservedForPlus,
+                );
+                final widths = _computeTabWidths(
+                  availableForTabs,
+                  state.tabs.length,
+                );
+                final visibleTabsWidth = math.min(
+                  availableForTabs,
+                  widths.selected +
+                      widths.unselected * math.max(0, state.tabs.length - 1),
+                );
+                if (_tabsAreaWidth == null ||
+                    (_tabsAreaWidth! - visibleTabsWidth).abs() > 0.5) {
+                  WidgetsBinding.instance.addPostFrameCallback((_) {
+                    if (mounted) setState(() => _tabsAreaWidth = visibleTabsWidth);
+                  });
+                }
+                return const SizedBox.shrink();
+              },
             ),
-          ),
-      ],
+            _buildTabsContent(state),
+            if (showNewTabButton)
+              PositionedDirectional(
+                start: _tabsAreaWidth ?? 0,
+                top: 4,
+                child: MetaData(
+                  metaData: _kTabHitMarker,
+                  behavior: HitTestBehavior.opaque,
+                  child: _buildOpenLibraryButton(context),
+                ),
+              ),
+          ],
+        );
+      },
     );
   }
 
@@ -737,8 +737,8 @@ class _CustomTitleBarState extends State<CustomTitleBar> {
   Widget _buildOpenLibraryButton(BuildContext context) {
     return IconButton(
       icon: const Icon(FluentIcons.add_24_regular, size: 18),
-      tooltip: context.settingsText('פתיחת ספר'),
-      onPressed: () => PluginNewTabPageRegistry.instance.open(context),
+      tooltip: context.settingsText('כרטיסייה חדשה'),
+      onPressed: PluginNewTabPageRegistry.instance.open,
       style: _kIconButtonStyle,
     );
   }
