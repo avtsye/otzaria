@@ -6,7 +6,7 @@ import 'package:otzaria/plugins/services/plugin_page_launcher.dart';
 /// Registration belongs to the plugin, not to one WebView instance. This is
 /// intentional: a startup/background instance may register the target and then
 /// be disposed, while the "+" must continue to open the plugin's visible page.
-/// A later registration wins; disabling the registration restores the library.
+/// A later registration wins; when no registration remains, the new-tab button is hidden.
 class PluginNewTabPageRegistry extends ChangeNotifier {
   static final PluginNewTabPageRegistry instance = PluginNewTabPageRegistry._();
   PluginNewTabPageRegistry._();
