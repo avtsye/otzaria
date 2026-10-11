@@ -214,20 +214,23 @@ void main() {
       await pumpBook(tester);
       final heading = find.textContaining('פרשת נח', findRichText: true);
       expect(heading, findsOneWidget);
-      final selectedBackground = find.byWidgetPredicate(
+      final selectedIndicator = find.byWidgetPredicate(
         (w) =>
             w is AnimatedContainer &&
-            (w.decoration as BoxDecoration?)?.color != null,
+            ((w.foregroundDecoration as BoxDecoration?)?.border as Border?)
+                    ?.right
+                    .width ==
+                3,
       );
       expect(
         find.ancestor(
           of: find.textContaining('אלה תולדת נח', findRichText: true),
-          matching: selectedBackground,
+          matching: selectedIndicator,
         ),
         findsOneWidget,
       );
       expect(
-        find.ancestor(of: heading, matching: selectedBackground),
+        find.ancestor(of: heading, matching: selectedIndicator),
         findsNothing,
       );
     },
