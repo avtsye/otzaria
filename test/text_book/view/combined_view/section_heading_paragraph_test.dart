@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'package:otzaria/text_book/view/widgets/selection_gutter_painter.dart';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/gestures.dart';
@@ -216,11 +217,8 @@ void main() {
       expect(heading, findsOneWidget);
       final selectedIndicator = find.byWidgetPredicate(
         (w) =>
-            w is AnimatedContainer &&
-            ((w.foregroundDecoration as BoxDecoration?)?.border as Border?)
-                    ?.right
-                    .width ==
-                3,
+            w is CustomPaint &&
+            w.foregroundPainter is SelectionGutterPainter,
       );
       expect(
         find.ancestor(
