@@ -1,3 +1,4 @@
+import 'package:otzaria/text_book/view/widgets/selection_gutter_painter.dart';
 import 'package:otzaria/models/book_source.dart';
 import 'package:otzaria/text_book/utils/reader_paragraph_copy.dart';
 import 'package:otzaria/text_book/utils/reader_menu_entries.dart';
@@ -2992,21 +2993,15 @@ class _SimpleTextViewerState extends State<SimpleTextViewer> {
               ),
             ];
           },
+          child: CustomPaint(
+          foregroundPainter: isSelected
+              ? SelectionGutterPainter(theme.colorScheme.primary)
+              : null,
           child: AnimatedContainer(
             duration: const Duration(milliseconds: 200),
             curve: Curves.easeInOut,
             decoration: BoxDecoration(color: backgroundColor),
             // Paint selection over the paragraph without changing text margins.
-            foregroundDecoration: isSelected
-                ? BoxDecoration(
-                    border: Border(
-                      right: BorderSide(
-                        color: theme.colorScheme.primary,
-                        width: 3,
-                      ),
-                    ),
-                  )
-                : null,
             padding: const EdgeInsets.symmetric(horizontal: 4.0, vertical: 2.0),
             child: BlocBuilder<SettingsBloc, SettingsState>(
               builder: (context, settingsState) {
@@ -3197,7 +3192,7 @@ class _SimpleTextViewerState extends State<SimpleTextViewer> {
                 return textWidget;
               },
             ),
-          ),
+          )),
         ),
       ),
     );
