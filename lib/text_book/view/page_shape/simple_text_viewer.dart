@@ -2860,8 +2860,8 @@ class _SimpleTextViewerState extends State<SimpleTextViewer> {
           (0.4 * 255).round(),
         );
       }
-      if (isCommentaryHighlighted || isSelected) {
-        // צבע הדגשה למפרש קשור - כמו השורה הנבחרת
+      if (isCommentaryHighlighted) {
+        // Only commentary highlights paint the background; selected paragraphs use a gutter marker.
         return AppSurfaces.paragraphSelectionBackground(theme.colorScheme);
       }
       return null;
@@ -2995,9 +2995,15 @@ class _SimpleTextViewerState extends State<SimpleTextViewer> {
           child: AnimatedContainer(
             duration: const Duration(milliseconds: 200),
             curve: Curves.easeInOut,
-            decoration: backgroundColor != null
-                ? BoxDecoration(color: backgroundColor)
-                : null,
+            decoration: BoxDecoration(
+              color: backgroundColor,
+              border: Border(
+                right: BorderSide(
+                  color: isSelected ? theme.colorScheme.primary : Colors.transparent,
+                  width: 3,
+                ),
+              ),
+            ),
             padding: const EdgeInsets.symmetric(horizontal: 4.0, vertical: 2.0),
             child: BlocBuilder<SettingsBloc, SettingsState>(
               builder: (context, settingsState) {
@@ -3313,8 +3319,6 @@ class _SimpleTextViewerState extends State<SimpleTextViewer> {
       }
       final backgroundColor = state.highlightedLine == lineIndex
           ? colorScheme.secondaryContainer.withAlpha((0.4 * 255).round())
-          : state.selectedIndices.contains(lineIndex)
-          ? AppSurfaces.paragraphSelectionBackground(colorScheme)
           : null;
       final style = backgroundColor == null
           ? baseTextStyle
