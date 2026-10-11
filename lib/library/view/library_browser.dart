@@ -7,6 +7,7 @@ import 'package:flutter/services.dart';
 import 'package:fluentui_system_icons/fluentui_system_icons.dart';
 import 'package:otzaria_icons/otzaria_icons.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:otzaria/plugins/models/plugin_search_field_action.dart';
 import 'package:otzaria/core/focus_repository.dart';
 import 'package:otzaria/core/messages/messages_exports.dart';
 import 'package:otzaria/core/ui_snack.dart';
@@ -37,7 +38,6 @@ import 'package:otzaria/library/view/library_empty_state_widget.dart';
 import 'package:otzaria/search/models/search_configuration.dart';
 import 'package:otzaria/search/view/search_dialog.dart';
 import 'package:otzaria/tabs/models/searching_tab.dart';
-import 'package:otzaria/library/view/library_panel_controller.dart';
 import 'package:otzaria/widgets/widgets_exports.dart';
 import 'package:otzaria/widgets/navigation/app_top_bar.dart';
 import 'package:otzaria/widgets/navigation/responsive_action_bar.dart';
@@ -406,24 +406,12 @@ class _LibraryBrowserState extends State<LibraryBrowser>
     );
   }
 
-  void _syncLibraryPanelController() {
-    LibraryPanelController.register(
-      isSettingsPanelOpen: () => _settingsPanelOpen.value,
-      showSettingsPanel: _openSettingsPanel,
-      closeSettingsPanel: _closeSettingsPanel,
-      openPreviewPanel: _showPreviewPanel,
-      closePreviewPanel: _hidePreviewPanel,
-      togglePreviewPanel: _togglePreviewPanel,
-    );
-  }
-
   @override
   void initState() {
     super.initState();
     _secondaryRowVisible = ValueNotifier<bool>(true);
     _topBarTotalHeight = ValueNotifier<double>(0);
     context.read<LibraryBloc>().add(LoadLibrary());
-    _syncLibraryPanelController();
     PluginLibraryBooksRegistry.instance.addListener(_onPluginBooksChanged);
   }
 
@@ -442,7 +430,6 @@ class _LibraryBrowserState extends State<LibraryBrowser>
     _secondaryRowVisible.dispose();
     _topBarTotalHeight.dispose();
     _settingsPanelOpen.dispose();
-    LibraryPanelController.unregister();
     super.dispose();
   }
 
@@ -916,6 +903,7 @@ class _LibraryBrowserState extends State<LibraryBrowser>
                 args: {'category': state.currentCategory?.title ?? ''},
               ),
               maxWidth: isCompact ? 500 : 400,
+              pluginActionsField: PluginSearchField.library,
               onChanged: (value) {
                 context.read<LibraryBloc>().add(UpdateSearchQuery(value));
                 context.read<LibraryBloc>().add(const SelectTopics([]));
@@ -2052,13 +2040,18 @@ class _LibraryBrowserState extends State<LibraryBrowser>
       mouseCursor: SystemMouseCursors.click,
       borderRadius: BorderRadius.zero,
       hoverDuration: Durations.medium1,
-      onTap: () => setState(() {
-        if (isExpanded) {
-          _expandedCategories.remove(category.path);
-        } else {
-          _expandedCategories.add(category.path);
+      onTap: () {
+        if (_isPreviewPanelVisible(context.read<SettingsBloc>().state)) {
+          context.read<LibraryBloc>().add(SelectCategoryForPreview(category));
         }
-      }),
+        setState(() {
+          if (isExpanded) {
+            _expandedCategories.remove(category.path);
+          } else {
+            _expandedCategories.add(category.path);
+          }
+        });
+      },
       child: Padding(
         padding: EdgeInsets.only(
           right: horizontalPadding + indent,

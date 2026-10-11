@@ -14,6 +14,7 @@ import 'package:otzaria/plugins/services/context_menu_registry.dart';
 import 'package:otzaria/plugins/services/plugin_shortcut_registry.dart';
 import 'package:otzaria/plugins/services/plugin_toolbar_registry.dart';
 import 'package:otzaria/plugins/services/plugin_new_tab_page_registry.dart';
+import 'package:otzaria/plugins/services/plugin_new_tab_page_service.dart';
 import 'package:otzaria/plugins/services/plugin_text_reader_registry.dart';
 import 'package:otzaria/plugins/services/plugin_highlight_registry.dart';
 import 'package:otzaria/plugins/services/plugin_startup_contributions_service.dart';
@@ -24,6 +25,8 @@ import 'package:otzaria/plugins/services/plugin_download_service.dart';
 import 'package:otzaria/plugins/services/plugin_external_search_service.dart';
 import 'package:otzaria/plugins/services/plugin_file_server.dart';
 import 'package:otzaria/plugins/services/plugin_search_dialog_registry.dart';
+import 'package:otzaria/plugins/services/plugin_search_field_actions_registry.dart';
+import 'package:otzaria/plugins/services/plugin_search_field_session_service.dart';
 import 'package:otzaria/plugins/services/plugin_external_editions_registry.dart';
 import 'package:otzaria/plugins/services/plugin_condition_evaluator.dart';
 import 'package:otzaria/plugins/services/plugin_in_book_search_service.dart';
@@ -541,6 +544,11 @@ class PluginSystemBloc extends Bloc<PluginSystemEvent, PluginSystemState> {
         grantedPermissions: event.grantedPermissions,
       );
 
+      if (!event.manifest.permissions.contains('navigation.write') ||
+          event.grantedPermissions['navigation.write'] != true) {
+        PluginNewTabPageRegistry.instance.remove(event.manifest.id);
+        PluginNewTabPageService.broadcastChanged();
+      }
       UiSnack.showSuccess(
         event.isUpdate
             ? PluginMessages.pluginUpdatedSuccess
@@ -626,6 +634,8 @@ class PluginSystemBloc extends Bloc<PluginSystemEvent, PluginSystemState> {
       PluginNewTabPageRegistry.instance.remove(event.pluginId);
       await _cancelPluginNotifications(event.pluginId);
       await _installerService.uninstallPlugin(event.pluginId);
+      PluginNewTabPageRegistry.instance.remove(event.pluginId);
+      PluginNewTabPageService.broadcastChanged();
       add(LoadPlugins());
     } catch (e) {
       UiSnack.showError(PluginMessages.uninstallPluginError(e));
@@ -706,6 +716,8 @@ class PluginSystemBloc extends Bloc<PluginSystemEvent, PluginSystemState> {
       final plugin = await repository.getPlugin(event.pluginId);
       if (plugin != null) {
         await repository.savePlugin(plugin.copyWith(enabled: false));
+        PluginNewTabPageRegistry.instance.remove(event.pluginId);
+        PluginNewTabPageService.broadcastChanged();
         PluginRuntimeDispatcher.instance.invalidatePlugin(event.pluginId);
         add(LoadPlugins());
       }
@@ -745,6 +757,8 @@ class PluginSystemBloc extends Bloc<PluginSystemEvent, PluginSystemState> {
     PluginLibraryBooksRegistry.instance.removePlugin(pluginId);
     PluginNewTabPageRegistry.instance.remove(pluginId);
     PluginSearchDialogRegistry.instance.removeAll(pluginId);
+    PluginSearchFieldActionsRegistry.instance.removeAll(pluginId);
+    PluginSearchFieldSessionService.instance.removePlugin(pluginId);
     PluginExternalEditionsRegistry.instance.removePlugin(pluginId);
     PluginLazyActivationService.instance.removePlugin(pluginId);
     PluginConditionEvaluator.instance.removePlugin(pluginId);
@@ -756,12 +770,29 @@ class PluginSystemBloc extends Bloc<PluginSystemEvent, PluginSystemState> {
   ) async {
     try {
       _removeDeclarative(event.pluginId);
-      await repository.setPermission(
-        event.pluginId,
-        event.permission,
-        event.granted,
-      );
+      if (event.permission == pluginNewTabPagePermission && event.granted) {
+        if (!await PluginNewTabPageService.instance.grant(
+          event.pluginId,
+          repository,
+          expectedOwner: await PluginNewTabPageService.instance.ownerId(
+            repository,
+          ),
+        )) {
+          return;
+        }
+      } else {
+        await repository.setPermission(
+          event.pluginId,
+          event.permission,
+          event.granted,
+        );
+      }
       if (!event.granted) {
+        if (event.permission == 'navigation.write' ||
+            event.permission == pluginNewTabPagePermission) {
+          PluginNewTabPageRegistry.instance.remove(event.pluginId);
+          PluginNewTabPageService.broadcastChanged();
+        }
         if (event.permission == 'reader.open') {
           _removeSearchProviders(event.pluginId);
         } else if (event.permission == 'search.dialog' ||
@@ -779,6 +810,10 @@ class PluginSystemBloc extends Bloc<PluginSystemEvent, PluginSystemState> {
         }
         if (event.permission == 'app.shortcuts') {
           PluginShortcutRegistry.instance.removeAll(event.pluginId);
+        }
+        if (event.permission == pluginSearchFieldActionsPermission) {
+          PluginSearchFieldActionsRegistry.instance.removeAll(event.pluginId);
+          PluginSearchFieldSessionService.instance.removePlugin(event.pluginId);
         }
         if (event.permission == 'reader.highlight') {
           PluginHighlightRegistry.instance.removePlugin(event.pluginId);
@@ -820,6 +855,10 @@ class PluginSystemBloc extends Bloc<PluginSystemEvent, PluginSystemState> {
           event.directoryPath,
           preValidatedManifest: manifest,
         );
+        if (!manifest.permissions.contains('navigation.write')) {
+          PluginNewTabPageRegistry.instance.remove(manifest.id);
+          PluginNewTabPageService.broadcastChanged();
+        }
         add(LoadPlugins());
         UiSnack.showSuccess(PluginMessages.devPluginReloaded);
       } else {
@@ -853,6 +892,8 @@ class PluginSystemBloc extends Bloc<PluginSystemEvent, PluginSystemState> {
       PluginNewTabPageRegistry.instance.remove(event.pluginId);
       PluginFileServer.instance.revokeAllForPlugin(event.pluginId);
       await repository.detachDevelopmentPlugin(event.pluginId);
+      PluginNewTabPageRegistry.instance.remove(event.pluginId);
+      PluginNewTabPageService.broadcastChanged();
       devWatchService.stopWatcher(event.pluginId);
       add(LoadPlugins());
     } catch (e) {

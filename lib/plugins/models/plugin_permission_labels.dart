@@ -92,6 +92,9 @@ List<String> pluginBackgroundActivationReasons(PluginManifest manifest) {
   if (startup.libraryBooks.isNotEmpty) {
     reasons.add('בחירת ספר של התוסף במסך הספרייה');
   }
+  if (startup.searchFieldActions.isNotEmpty) {
+    reasons.add('לחיצה על כפתור התוסף בשדה חיפוש');
+  }
   for (final topic in startup.activationEvents) {
     if (topic == PluginStartupContributions.startupActivationTopic) {
       reasons.add('עליית אוצריא');
@@ -249,6 +252,13 @@ const Map<String, PluginPermissionInfo> _permissionLabels = {
     icon: FluentIcons.search_24_regular,
     description: 'הוספת שורות סטטיות לדיאלוג החיפוש, ללא הפעלת קוד התוסף ברקע',
   ),
+  pluginSearchFieldActionsPermission: PluginPermissionInfo(
+    label: 'כפתורים בשדות החיפוש',
+    icon: FluentIcons.search_24_regular,
+    description:
+        'הוספת כפתור לתוך שדות החיפוש. רק אחרי לחיצה שלך על הכפתור, התוסף '
+        'יכול לכתוב טקסט לאותו שדה — עד שתקליד בו בעצמך או שהשדה ייסגר',
+  ),
 
   // ===== קורא =====
   'reader.open': PluginPermissionInfo(
@@ -280,6 +290,11 @@ const Map<String, PluginPermissionInfo> _permissionLabels = {
   ),
 
   // ===== ניווט =====
+  pluginNewTabPagePermission: PluginPermissionInfo(
+    label: "כפתור לשונית חדשה (+)",
+    icon: FluentIcons.add_24_regular,
+    description: "פתיחת דף התוסף בכפתור '+'. רק תוסף אחד יכול לקבל הרשאה זו.",
+  ),
   'navigation.write': PluginPermissionInfo(
     label: 'ניווט במסכים',
     icon: FluentIcons.navigation_24_regular,

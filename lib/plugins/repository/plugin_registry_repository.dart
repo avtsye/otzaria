@@ -117,16 +117,6 @@ class PluginRegistryRepository {
     return plugins.where((p) => p.isDevelopment).toList();
   }
 
-  Future<void> saveDevelopmentPlugin(InstalledPlugin plugin) async {
-    if (!plugin.isDevelopment) {
-      throw ArgumentError('Cannot save a packaged plugin as development');
-    }
-    if (plugin.devRootPath == null || plugin.devRootPath!.trim().isEmpty) {
-      throw ArgumentError('Development plugin must have a valid devRootPath');
-    }
-    await _db.insertOrUpdatePlugin(await _keepSavedEnabled(plugin));
-  }
-
   Future<void> saveDevelopmentPluginWithPermissions(
     InstalledPlugin plugin,
     Map<String, bool> permissions,
@@ -186,6 +176,27 @@ class PluginRegistryRepository {
   ) async {
     await _db.setPermission(pluginId, permission, granted);
   }
+
+  Future<void> clearNewTabPageRegistration(String pluginId) =>
+      _db.clearNewTabPageRegistration(pluginId);
+
+  Future<String?> getNewTabPageOwner() async {
+    await PluginSafeMode.ready;
+    if (PluginSafeMode.isActive) return null;
+    return _db.getNewTabPageOwner();
+  }
+
+  Future<bool> grantNewTabPage(
+    String pluginId, {
+    required bool allowPreviouslyDenied,
+    required String? expectedOwner,
+    required void Function() onGranted,
+  }) => _db.grantNewTabPage(
+    pluginId,
+    allowPreviouslyDenied: allowPreviouslyDenied,
+    expectedOwner: expectedOwner,
+    onGranted: onGranted,
+  );
 
   Future<bool?> getPermission(String pluginId, String permission) async {
     if (pluginBaselinePermissions.contains(permission)) return true;

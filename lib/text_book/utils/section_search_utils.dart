@@ -82,49 +82,13 @@ final RegExp _whitespaceRun = RegExp(r'\s+');
 /// ניקוי שורה לחיפוש: הסרת הערות/HTML/ניקוד ואז כיווץ רצפי רווח לרווח יחיד.
 /// הכיווץ חיוני — הסרת תגים ("x </b> y") והמרת מקף/פסק לרווח ב-removeVolwels
 /// מייצרות רווח כפול, והחיפוש הליטרלי לא מוצא שאילתה עם רווח בודד.
-String cleanLineForSearch(String rawLine) => _collapseWhitespace(
-  utils.removeVolwels(
-    utils.stripHtmlIfNeeded(notes.stripInlineNotesForSearch(rawLine)),
-  ),
-).trim();
-
-/// כמו `replaceAll(_whitespaceRun, ' ')` בלי regex, ובלי העתקה כשאין מה
-/// לכווץ — רץ על כל שורות הספר בחיפוש הראשון.
-String _collapseWhitespace(String s) {
-  StringBuffer? out;
-  var copied = 0;
-  for (var i = 0; i < s.length; i++) {
-    if (!_isRegExpSpace(s.codeUnitAt(i))) continue;
-    var end = i + 1;
-    while (end < s.length && _isRegExpSpace(s.codeUnitAt(end))) {
-      end++;
-    }
-    if (end - i > 1 || s.codeUnitAt(i) != 0x20) {
-      (out ??= StringBuffer())
-        ..write(s.substring(copied, i))
-        ..write(' ');
-      copied = end;
-    }
-    i = end - 1;
-  }
-  if (out == null) return s;
-  out.write(s.substring(copied));
-  return out.toString();
-}
-
-/// התווים ש-`\s` של RegExp מתאים להם.
-bool _isRegExpSpace(int c) => c <= 0x20
-    ? c == 0x20 || (c >= 0x09 && c <= 0x0D)
-    : c == 0xA0 ||
-          (c >= 0x1680 &&
-              (c == 0x1680 ||
-                  (c >= 0x2000 && c <= 0x200A) ||
-                  c == 0x2028 ||
-                  c == 0x2029 ||
-                  c == 0x202F ||
-                  c == 0x205F ||
-                  c == 0x3000 ||
-                  c == 0xFEFF));
+String cleanLineForSearch(String rawLine) => utils
+    .collapseWhitespace(
+      utils.removeVolwels(
+        utils.stripHtmlIfNeeded(notes.stripInlineNotesForSearch(rawLine)),
+      ),
+    )
+    .trim();
 
 String _normalizeQueryWhitespace(String query) =>
     query.replaceAll(_whitespaceRun, ' ').trim();
@@ -143,6 +107,14 @@ void _updateAddress(List<String> address, String line) {
     address.removeRange(index, address.length);
   }
   address.add(line);
+}
+
+/// ביטוי עובר לשורה הבאה רק במפריד שבין מילים, ולכן מילה אחת אינה נמשכת.
+@visibleForTesting
+bool queryCanCrossLines(String query) {
+  final normalized = normalizeLiteralQuery(query);
+  // Rust split_whitespace מזהה גם NEL, ש-\s של Dart משאיר בשאילתה.
+  return normalized.contains(' ') || normalized.contains('\u0085');
 }
 
 bool _isHeadingLine(String rawLine) => rawLine.trimLeft().startsWith('<h');
@@ -498,6 +470,7 @@ class SectionSearchWorkerRuntime {
           final pattern = compileLiteralPattern(
             request['patternSource'] as String,
           );
+          final canCrossLines = queryCanCrossLines(query);
 
           // ודא שה-cache תואם לתוכן המבוקש; אחרת בנה אותו פעם אחת.
           // בקשה ללא contentId (תאימות לאחור) נחשבת תמיד כתוכן חדש.
@@ -614,7 +587,7 @@ class SectionSearchWorkerRuntime {
             }
 
             // ביטוי שנמשך לשורה הבאה נספר פעם אחת, בשורה שבה הוא מתחיל.
-            if (i + 1 < rangeEnd) {
+            if (canCrossLines && i + 1 < rangeEnd) {
               final crossing = crossLineMatch(
                 pattern,
                 rawLine: rawLine,
