@@ -2995,15 +2995,18 @@ class _SimpleTextViewerState extends State<SimpleTextViewer> {
           child: AnimatedContainer(
             duration: const Duration(milliseconds: 200),
             curve: Curves.easeInOut,
-            decoration: BoxDecoration(
-              color: backgroundColor,
-              border: Border(
-                right: BorderSide(
-                  color: isSelected ? theme.colorScheme.primary : Colors.transparent,
-                  width: 3,
-                ),
-              ),
-            ),
+            decoration: BoxDecoration(color: backgroundColor),
+            // Paint selection over the paragraph without changing text margins.
+            foregroundDecoration: isSelected
+                ? BoxDecoration(
+                    border: Border(
+                      right: BorderSide(
+                        color: theme.colorScheme.primary,
+                        width: 3,
+                      ),
+                    ),
+                  )
+                : null,
             padding: const EdgeInsets.symmetric(horizontal: 4.0, vertical: 2.0),
             child: BlocBuilder<SettingsBloc, SettingsState>(
               builder: (context, settingsState) {
