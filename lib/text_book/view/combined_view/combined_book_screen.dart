@@ -1,3 +1,4 @@
+import 'package:otzaria/text_book/view/widgets/selection_gutter_painter.dart';
 import 'package:otzaria/shortcuts/dynamic/dynamic_shortcut.dart';
 import 'package:otzaria/text_book/utils/reader_paragraph_copy.dart';
 import 'package:otzaria/text_book/utils/reader_menu_entries.dart';
@@ -2535,22 +2536,16 @@ class _CombinedViewState extends State<CombinedView> {
             child: _buildSectionHeadings(state, sectionHeadings),
           ),
         // הטקסט של הספר - ללא SelectionArea נפרד, כי יש SelectionArea כללי
-        AnimatedContainer(
+        CustomPaint(
+          foregroundPainter: isSelected
+              ? SelectionGutterPainter(theme.colorScheme.primary)
+              : null,
+          child: AnimatedContainer(
           duration: const Duration(milliseconds: 200),
           curve: Curves.easeInOut,
           // decoration קבוע שומר על עומק הטקסט ועל מצב <details> בבחירה.
           decoration: BoxDecoration(color: backgroundColor),
           // Foreground paint must not occupy layout width.
-          foregroundDecoration: isSelected
-              ? BoxDecoration(
-                  border: Border(
-                    right: BorderSide(
-                      color: theme.colorScheme.primary,
-                      width: 3,
-                    ),
-                  ),
-                )
-              : null,
           child: Listener(
             onPointerDown: (event) {
               if (event.buttons != kPrimaryMouseButton) return;
@@ -2961,7 +2956,7 @@ class _CombinedViewState extends State<CombinedView> {
               ),
             ),
           ),
-        ),
+        )),
         // ספר רש"י כספר ראשי: לעזי השורות מתחתיהן, כמו בחלונית המפרשים.
         if (isRashiTitle(state.book.title))
           for (final lineIndex
