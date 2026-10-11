@@ -2539,15 +2539,18 @@ class _CombinedViewState extends State<CombinedView> {
           duration: const Duration(milliseconds: 200),
           curve: Curves.easeInOut,
           // decoration קבוע שומר על עומק הטקסט ועל מצב <details> בבחירה.
-          decoration: BoxDecoration(
-            color: backgroundColor,
-            border: Border(
-              right: BorderSide(
-                color: isSelected ? theme.colorScheme.primary : Colors.transparent,
-                width: 3,
-              ),
-            ),
-          ),
+          decoration: BoxDecoration(color: backgroundColor),
+          // Foreground paint must not occupy layout width.
+          foregroundDecoration: isSelected
+              ? BoxDecoration(
+                  border: Border(
+                    right: BorderSide(
+                      color: theme.colorScheme.primary,
+                      width: 3,
+                    ),
+                  ),
+                )
+              : null,
           child: Listener(
             onPointerDown: (event) {
               if (event.buttons != kPrimaryMouseButton) return;
