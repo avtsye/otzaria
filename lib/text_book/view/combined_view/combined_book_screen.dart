@@ -2507,9 +2507,7 @@ class _CombinedViewState extends State<CombinedView> {
       if (isHighlighted) {
         return theme.colorScheme.secondaryContainer.withValues(alpha: 0.4);
       }
-      if (isSelected) {
-        return AppSurfaces.paragraphSelectionBackground(theme.colorScheme);
-      }
+      // Selection is shown as a stable gutter marker instead of changing the page background.
       return null;
     }();
 
@@ -2541,7 +2539,15 @@ class _CombinedViewState extends State<CombinedView> {
           duration: const Duration(milliseconds: 200),
           curve: Curves.easeInOut,
           // decoration קבוע שומר על עומק הטקסט ועל מצב <details> בבחירה.
-          decoration: BoxDecoration(color: backgroundColor),
+          decoration: BoxDecoration(
+            color: backgroundColor,
+            border: Border(
+              right: BorderSide(
+                color: isSelected ? theme.colorScheme.primary : Colors.transparent,
+                width: 3,
+              ),
+            ),
+          ),
           child: Listener(
             onPointerDown: (event) {
               if (event.buttons != kPrimaryMouseButton) return;
@@ -3157,8 +3163,6 @@ class _CombinedViewState extends State<CombinedView> {
           ? AppColors.permanentHighlight
           : state.highlightedLine == lineIndex
           ? colorScheme.secondaryContainer.withValues(alpha: 0.4)
-          : state.selectedIndices.contains(lineIndex)
-          ? AppSurfaces.paragraphSelectionBackground(colorScheme)
           : null;
       final style = backgroundColor == null
           ? baseTextStyle
