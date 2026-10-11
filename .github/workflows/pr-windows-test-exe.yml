@@ -1,0 +1,69 @@
+name: PR Windows Test EXE
+
+on:
+  push:
+    branches:
+      - fix/issue-1581-selection-indicator
+    paths:
+      - .github/workflows/pr-windows-test-exe.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  windows-test-exe:
+    runs-on: windows-2022
+    timeout-minutes: 90
+    env:
+      CARGOKIT_TEMP_DIR: D:/ck
+      UseMultiToolTask: 'true'
+      EnforceProcessCountAcrossBuilds: 'true'
+      CMAKE_BUILD_PARALLEL_LEVEL: '4'
+    steps:
+      - name: Checkout PR fix branch
+        uses: actions/checkout@v4
+        with:
+          ref: fix/issue-1581-selection-indicator
+
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          flutter-version: 3.47.2
+          cache: true
+
+      - name: Install dependencies
+        run: flutter pub get --enforce-lockfile
+
+      - name: Generate settings search index
+        shell: pwsh
+        run: |
+          if (Test-Path 'tool/generate_settings_search_index.dart') {
+            dart run tool/generate_settings_search_index.dart
+            if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          }
+
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Build test EXE
+        run: flutter build windows --debug
+
+      - name: Verify Windows executable
+        shell: pwsh
+        run: |
+          $dir = 'build/windows/x64/runner/Debug'
+          if (!(Test-Path $dir)) { throw "Windows build directory missing: $dir" }
+          $exe = Get-ChildItem $dir -Filter '*.exe' | Select-Object -First 1
+          if (!$exe) { throw 'No EXE produced' }
+          Write-Host "EXE: $($exe.FullName)"
+          Get-ChildItem $dir
+
+      - name: Upload complete test application
+        uses: actions/upload-artifact@v4
+        with:
+          name: Otzaria-Issue-1581-Windows-TEST
+          path: build/windows/x64/runner/Debug/
+          if-no-files-found: error
+          retention-days: 14
