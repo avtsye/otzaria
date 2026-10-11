@@ -1,0 +1,86 @@
+name: Portable Windows Release Test
+
+on:
+  push:
+    branches: [dev]
+    paths: [.github/workflows/portable-windows-test.yml]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  portable-windows:
+    runs-on: windows-2022
+    timeout-minutes: 120
+    env:
+      CARGOKIT_TEMP_DIR: D:/ck
+      UseMultiToolTask: 'true'
+      EnforceProcessCountAcrossBuilds: 'true'
+      CMAKE_BUILD_PARALLEL_LEVEL: '4'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          flutter-version: 3.47.2
+          cache: true
+      - name: Prepare dependencies and generated resources
+        shell: pwsh
+        run: |
+          git config --global core.longpaths true
+          flutter pub get --enforce-lockfile
+          if ($LASTEXITCODE -ne 0) { throw 'pub get failed' }
+          dart run tool/generate_search_index.dart
+          if ($LASTEXITCODE -ne 0) { throw 'search index generation failed' }
+          dart run tool/generate_settings_l10n.dart
+          if ($LASTEXITCODE -ne 0) { throw 'settings localization generation failed' }
+      - name: Bundle VC++ runtime alongside portable app
+        shell: pwsh
+        run: |
+          $dest = 'installer/vcredist/x64'
+          New-Item -ItemType Directory -Path $dest -Force | Out-Null
+          $dlls = @('msvcp140.dll','msvcp140_1.dll','msvcp140_2.dll',
+            'msvcp140_atomic_wait.dll','msvcp140_codecvt_ids.dll',
+            'vcruntime140.dll','vcruntime140_1.dll','vcruntime140_threads.dll',
+            'concrt140.dll','vccorlib140.dll')
+          foreach ($name in $dlls) {
+            $src = Join-Path $env:SystemRoot "System32/$name"
+            if (Test-Path $src) { Copy-Item $src (Join-Path $dest $name) -Force }
+          }
+      - name: Build optimized Windows release
+        shell: pwsh
+        env:
+          BIO_OBF_KEY: ${{ secrets.BIO_OBF_KEY }}
+        run: |
+          flutter build windows --release --dart-define="BIO_OBF_KEY=$env:BIO_OBF_KEY"
+          if ($LASTEXITCODE -ne 0) { throw 'Windows release build failed' }
+      - name: Package portable application
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $source = 'build/windows/x64/runner/Release'
+          if (!(Test-Path $source)) { throw 'Missing Windows release directory' }
+          $dest = Join-Path $env:RUNNER_TEMP 'Otzaria-Portable'
+          New-Item -ItemType Directory -Path $dest -Force | Out-Null
+          Copy-Item "$source/*" $dest -Recurse -Force
+          New-Item -ItemType File -Path (Join-Path $dest 'portable.marker') -Force | Out-Null
+          # Symbol files are only required for debugging; never omit runtime DLLs or data.
+          Get-ChildItem $dest -Recurse -File -Filter '*.pdb' | Remove-Item -Force
+          $exe = Get-ChildItem $dest -Filter '*.exe' | Where-Object Name -EQ 'otzaria.exe' | Select-Object -First 1
+          if (-not $exe) { throw 'otzaria.exe missing' }
+          if (!(Test-Path (Join-Path $dest 'data'))) { throw 'Flutter data directory missing' }
+          $files = Get-ChildItem $dest -Recurse -File
+          $files | Sort-Object Length -Descending | Select-Object -First 15 Name, Length, FullName | Format-Table -AutoSize
+          $total = ($files | Measure-Object Length -Sum).Sum
+          Write-Host ("Uncompressed portable directory: {0:N1} MiB" -f ($total / 1MB))
+          Compress-Archive -Path "$dest/*" -DestinationPath 'Otzaria-Portable-Windows-Release.zip' -CompressionLevel Optimal
+          $zip = Get-Item 'Otzaria-Portable-Windows-Release.zip'
+          Write-Host ("Portable ZIP: {0:N1} MiB" -f ($zip.Length / 1MB))
+      - name: Upload portable ZIP
+        uses: actions/upload-artifact@v4
+        with:
+          name: Otzaria-Portable-Windows-Release-Test
+          path: Otzaria-Portable-Windows-Release.zip
+          if-no-files-found: error
+          retention-days: 14
