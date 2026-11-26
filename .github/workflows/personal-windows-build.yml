@@ -16,9 +16,13 @@ concurrency:
 
 jobs:
   windows_x64:
-    name: Build personal Windows x64 package
+    name: Build personal Windows x64 package and installer
     runs-on: windows-2025
-    timeout-minutes: 90
+    timeout-minutes: 110
+    env:
+      VC_REDIST_URL: 'https://download.visualstudio.microsoft.com/download/pr/ebdab8e5-1d7b-4d9f-a11b-cbb1720c3b12/843068991DAAA1F73AD9F6239BCE4D0F6A07A51F18C37EA2A867E9BECA71295C/VC_redist.x64.exe'
+      VC_REDIST_SHA256: '843068991DAAA1F73AD9F6239BCE4D0F6A07A51F18C37EA2A867E9BECA71295C'
+      VC_REDIST_MIN_VERSION: '14.51.36247.0'
     steps:
       - name: Checkout this fork
         uses: actions/checkout@v7.0.1
@@ -28,6 +32,18 @@ jobs:
       - name: Enable long Git paths
         shell: pwsh
         run: git config --global core.longpaths true
+
+      - name: Install Inno Setup 6.7.1
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          choco upgrade innosetup --version 6.7.1 --allow-downgrade -y --no-progress
+          if ($LASTEXITCODE -ne 0) { throw 'Inno Setup installation failed' }
+          $iscc = Get-ChildItem 'C:\Program Files*\Inno Setup 6\ISCC.exe' -Recurse -ErrorAction SilentlyContinue |
+            Select-Object -First 1 -ExpandProperty FullName
+          if (-not $iscc) { throw 'ISCC.exe was not found after installation' }
+          "ISCC=$iscc" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
+          Write-Host "Using $iscc"
 
       - name: Set up Flutter 3.47.7
         uses: subosito/flutter-action@v2
@@ -59,6 +75,34 @@ jobs:
           dart run tool/generate_settings_l10n.dart
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
+      - name: Stage verified Visual C++ runtime DLLs
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          Invoke-WebRequest -Uri $env:VC_REDIST_URL -OutFile installer\vc_redist.x64.exe
+          $actualHash = (Get-FileHash installer\vc_redist.x64.exe -Algorithm SHA256).Hash
+          if ($actualHash -ne $env:VC_REDIST_SHA256) {
+            throw "VC++ Redistributable SHA-256 mismatch: $actualHash"
+          }
+          $proc = Start-Process -FilePath installer\vc_redist.x64.exe -ArgumentList '/install','/quiet','/norestart' -Wait -PassThru
+          if ($proc.ExitCode -notin @(0, 1638, 3010)) {
+            throw "VC++ Redistributable installation failed: $($proc.ExitCode)"
+          }
+          $msvcp = Join-Path $env:SystemRoot 'System32\msvcp140.dll'
+          if (-not (Test-Path $msvcp)) { throw 'msvcp140.dll is missing after VC++ runtime setup' }
+          $actualVersion = (Get-Item $msvcp).VersionInfo.FileVersionRaw
+          if ($actualVersion -lt [version]$env:VC_REDIST_MIN_VERSION) {
+            throw "VC++ runtime $actualVersion is older than required $env:VC_REDIST_MIN_VERSION"
+          }
+          $dest = 'installer\vcredist\x64'
+          New-Item -ItemType Directory -Force -Path $dest | Out-Null
+          $dlls = @('msvcp140.dll','msvcp140_1.dll','msvcp140_2.dll','msvcp140_atomic_wait.dll','msvcp140_codecvt_ids.dll','vcruntime140.dll','vcruntime140_1.dll','vcruntime140_threads.dll','concrt140.dll','vccorlib140.dll')
+          foreach ($dll in $dlls) {
+            $source = Join-Path $env:SystemRoot "System32\$dll"
+            if (Test-Path $source) { Copy-Item $source (Join-Path $dest $dll) -Force }
+          }
+          Write-Host "Staged app-local VC++ runtime DLLs (System32 version $actualVersion)."
+
       - name: Build Otzaria for Windows x64
         shell: pwsh
         env:
@@ -83,6 +127,36 @@ jobs:
             throw "The built app does not contain the verified patched Flutter engine. Expected $env:PATCHED_FLUTTER_DLL_SHA256; got $actual"
           }
           Write-Host "Verified app executable and patched Flutter engine."
+
+      - name: Build standard Windows installer
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          & ./tool/release/fetch_assistant_art.ps1
+          if ($LASTEXITCODE -ne 0) { throw 'Could not fetch the pinned installer artwork' }
+
+          $versionLine = Select-String -Path pubspec.yaml -Pattern '^version:' | Select-Object -First 1
+          $version = $versionLine.Line.Split(':', 2)[1].Trim().Split('+')[0]
+          $scriptVersion = Select-String -Path installer\otzaria.iss -Pattern '^#define MyAppVersion ' | Select-Object -First 1
+          if (-not $scriptVersion -or $scriptVersion.Line -notmatch [regex]::Escape('"' + $version + '"')) {
+            throw "installer\otzaria.iss version does not match pubspec.yaml ($version); refusing to create a mislabeled installer."
+          }
+
+          & "$env:ISCC" installer\otzaria.iss
+          if ($LASTEXITCODE -ne 0) { throw 'Inno Setup compilation failed' }
+          $setup = "installer\otzaria-$version-windows.exe"
+          if (-not (Test-Path $setup)) { throw "Installer output is missing: $setup" }
+          if ((Get-Item $setup).Length -lt 5MB) { throw 'Installer executable is unexpectedly small' }
+          Write-Host "Created $setup ($([math]::Round((Get-Item $setup).Length / 1MB, 1)) MB)."
+
+      - name: Upload Windows installer
+        uses: actions/upload-artifact@v7.0.2
+        with:
+          name: otzaria-windows-x64-installer
+          path: installer/otzaria-*-windows.exe
+          if-no-files-found: error
+          compression-level: 0
+          retention-days: 30
 
       - name: Package portable Windows build
         shell: pwsh
