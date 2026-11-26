@@ -1,0 +1,120 @@
+name: Personal Windows Build
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [dev]
+    paths:
+      - '.github/workflows/personal-windows-build.yml'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: personal-windows-build-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  windows_x64:
+    name: Build personal Windows x64 package
+    runs-on: windows-2025
+    timeout-minutes: 90
+    steps:
+      - name: Checkout this fork
+        uses: actions/checkout@v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Enable long Git paths
+        shell: pwsh
+        run: git config --global core.longpaths true
+
+      - name: Set up Flutter 3.47.7
+        uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          flutter-version: 3.47.7
+          cache: true
+          cache-key: 'flutter-:os:-:channel:-:version:-:arch:-:hash:-personal-patched-engine'
+
+      - name: Install the verified Otzaria Flutter engine
+        uses: ./.github/actions/patched-flutter-engine
+        with:
+          arch: x64
+
+      - name: Fetch optional biographies data
+        uses: ./.github/actions/fetch-biographies
+
+      - name: Resolve locked dependencies
+        shell: pwsh
+        run: |
+          flutter pub get --enforce-lockfile
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+      - name: Generate build-time settings sources
+        shell: pwsh
+        run: |
+          dart run tool/generate_search_index.dart
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          dart run tool/generate_settings_l10n.dart
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+      - name: Build Otzaria for Windows x64
+        shell: pwsh
+        env:
+          UseMultiToolTask: 'true'
+          EnforceProcessCountAcrossBuilds: 'true'
+          CMAKE_BUILD_PARALLEL_LEVEL: '4'
+        run: |
+          New-Item -ItemType Directory -Force -Path build\dart-symbols | Out-Null
+          $symbols = Join-Path $PWD 'build\dart-symbols\otzaria-dart-symbols-windows-x64.debug'
+          flutter build windows --release --verbose "--dart-define=OTZARIA_BUILD_COMMIT=$(git rev-parse --short=12 HEAD)" "--extra-gen-snapshot-options=--save-debugging-info=$symbols"
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+          $release = 'build\windows\x64\runner\Release'
+          $exe = Join-Path $release 'otzaria.exe'
+          $engine = Join-Path $release 'flutter_windows.dll'
+          if (-not (Test-Path $exe)) { throw "Build output is missing: $exe" }
+          if (-not (Test-Path $engine)) { throw "Build output is missing: $engine" }
+          if ((Get-Item $exe).Length -lt 1MB) { throw 'otzaria.exe is unexpectedly small' }
+
+          $actual = (Get-FileHash -Algorithm SHA256 -LiteralPath $engine).Hash.ToLowerInvariant()
+          if ($actual -ne $env:PATCHED_FLUTTER_DLL_SHA256) {
+            throw "The built app does not contain the verified patched Flutter engine. Expected $env:PATCHED_FLUTTER_DLL_SHA256; got $actual"
+          }
+          Write-Host "Verified app executable and patched Flutter engine."
+
+      - name: Package portable Windows build
+        shell: pwsh
+        run: |
+          $release = 'build\windows\x64\runner\Release'
+          $marker = Join-Path $release 'portable.marker'
+          New-Item -ItemType File -Path $marker -Force | Out-Null
+
+          $versionLine = Select-String -Path pubspec.yaml -Pattern '^version:' | Select-Object -First 1
+          $version = $versionLine.Line.Split(':', 2)[1].Trim().Split('+')[0]
+          $archive = "otzaria-$version-windows-x64-personal.zip"
+          Compress-Archive -Path "$release\*" -DestinationPath $archive -CompressionLevel Optimal
+
+          if (-not (Test-Path $archive)) { throw 'Portable ZIP was not created' }
+          if ((Get-Item $archive).Length -lt 10MB) { throw 'Portable ZIP is unexpectedly small' }
+          "ARCHIVE=$archive" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
+          Write-Host "Created $archive ($([math]::Round((Get-Item $archive).Length / 1MB, 1)) MB)."
+
+      - name: Upload personal Windows package
+        uses: actions/upload-artifact@v7.0.2
+        with:
+          name: otzaria-windows-x64-personal
+          path: ${{ env.ARCHIVE }}
+          if-no-files-found: error
+          compression-level: 0
+          retention-days: 30
+
+      - name: Upload Dart debugging symbols
+        if: always() && hashFiles('build/dart-symbols/otzaria-dart-symbols-windows-x64.debug') != ''
+        uses: actions/upload-artifact@v7.0.2
+        with:
+          name: otzaria-windows-x64-dart-symbols
+          path: build/dart-symbols/otzaria-dart-symbols-windows-x64.debug
+          if-no-files-found: warn
+          retention-days: 14
