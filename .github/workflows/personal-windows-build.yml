@@ -132,8 +132,15 @@ jobs:
         shell: pwsh
         run: |
           $ErrorActionPreference = 'Stop'
+          # This is a PowerShell script, not a native executable: LASTEXITCODE may
+          # contain a stale value from an earlier tool. The script throws on failure.
           & ./tool/release/fetch_assistant_art.ps1
-          if ($LASTEXITCODE -ne 0) { throw 'Could not fetch the pinned installer artwork' }
+          $artEntry = 'installer\assistant_art\assistant_art.isi'
+          $artStamp = 'installer\assistant_art\.pinned-sha256'
+          if (-not (Test-Path -LiteralPath $artEntry -PathType Leaf) -or
+              -not (Test-Path -LiteralPath $artStamp -PathType Leaf)) {
+            throw 'Pinned installer artwork was not staged correctly'
+          }
 
           $versionLine = Select-String -Path pubspec.yaml -Pattern '^version:' | Select-Object -First 1
           $version = $versionLine.Line.Split(':', 2)[1].Trim().Split('+')[0]
