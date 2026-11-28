@@ -194,7 +194,6 @@ class _PdfBookScreenState extends State<PdfBookScreen>
         WidgetsBindingObserver {
   AppLifecycleState? _appLifecycleState;
   final _snapshotBudgetEntries = <ui.Image, PdfImageCacheEntry>{};
-  final _bookViewLayoutMemo = BookViewLayoutMemo();
 
   /// האם חיצי הניווט נכנסו לסרגל בפריסה האחרונה. כשלא, הם בראש "עוד".
   final _navPlacement = ReaderNavPlacement();
@@ -772,24 +771,22 @@ class _PdfBookScreenState extends State<PdfBookScreen>
     };
     widget.tab.toggleNavPaneNotifier.addListener(_toggleNavPaneListener);
 
-    // קיצור Ctrl+Shift+C: טוגל לחלונית המפרשים (פאנל ימני, טאב מפרשים).
-    // אם הפאנל סגור או על טאב אחר — פתח על המפרשים. אם פתוח על המפרשים — סגור.
+    // קיצור Ctrl+Shift+C: פותח וסוגר את הפאנל הימני כולו. הפתיחה מציגה את
+    // הלשונית שהייתה פתוחה בו בפעם הקודמת.
     _toggleCommentatorsPaneListener = () {
       final current = _bloc.state;
       if (current is! PdfBookLoaded) return;
-      final isOnCommentary = _currentRightPaneTabIndex == _kCommentaryTabIndex;
-      if (current.showRightPane && isOnCommentary) {
+      if (current.showRightPane) {
         _setRightPaneVisibility(false);
-      } else {
+        return;
+      }
+      if (_currentRightPaneTabIndex == _kCommentaryTabIndex) {
         // בדומה ל-_openCommentaryPane: רישום interaction של TourCubit לפני
         // הפתיחה, כדי שטור/אונבורדינג ידע שהמשתמש השתמש במפרשים.
         _recordCommentaryOpenedIfNeeded();
-        setState(() {
-          _rightPaneInitialTabIndex = _kCommentaryTabIndex;
-          _currentRightPaneTabIndex = _kCommentaryTabIndex;
-        });
-        _setRightPaneVisibility(true);
       }
+      setState(() => _rightPaneInitialTabIndex = _currentRightPaneTabIndex);
+      _setRightPaneVisibility(true);
     };
     widget.tab.toggleCommentatorsPaneNotifier.addListener(
       _toggleCommentatorsPaneListener,
@@ -1387,14 +1384,9 @@ class _PdfBookScreenState extends State<PdfBookScreen>
         _pageNumberNotifier.value = pageNumber;
         if (mounted) _onPdfViewerControllerUpdate();
       },
-      layoutPages: layoutMode.isBookView
-          ? (pages, params) => _bookViewLayoutMemo.layout(
-              pages,
-              hasCover: layoutMode.hasCoverPage,
-              // המרווח הוכפל יחד עם הפריסה, לשמירת אותה פרופורציה בין כפולות.
-              verticalMargin: params.margin * 2,
-            )
-          : null,
+      layoutStrategy: layoutMode.isBookView
+          ? BookViewLayout(hasCover: layoutMode.hasCoverPage)
+          : const SequentialPagesLayout(),
       calculateCurrentPageNumber: pdfCurrentPageCalculatorFor(layoutMode),
       normalizeMatrix: layoutMode.isBookView
           ? (matrix, viewSize, layout, controller) {
@@ -1975,22 +1967,24 @@ class _PdfBookScreenState extends State<PdfBookScreen>
               }
             } else if (event is KeyUpEvent) {
               final key = event.logicalKey;
-              if (key == _continuousScrollKey) _stopContinuousScroll();
-              if (key == LogicalKeyboardKey.arrowUp ||
-                  key == LogicalKeyboardKey.arrowDown) {
-                return KeyEventResult.handled;
-              }
-              _horizontalPageTurnKeys.remove(key);
-              // שחרור אחרי החזקה מבטל את התור; לחיצות קצרות שומרות את הדפדוף שלהן.
-              if (_isPageTurnKey(event.logicalKey)) {
-                final wasHeld = _heldArrowKeys.remove(event.logicalKey);
-                if (wasHeld && _pendingPageTurns.isNotEmpty) {
+              final pageTurn = _isPageTurnKey(key);
+              if (!HardwareKeyboard.instance.isLogicalKeyPressed(key)) {
+                if (key == _continuousScrollKey) _stopContinuousScroll();
+                _horizontalPageTurnKeys.remove(key);
+                // שחרור אחרי החזקה מבטל את התור; לחיצות קצרות שומרות את הדפדוף שלהן.
+                if (pageTurn &&
+                    _heldArrowKeys.remove(key) &&
+                    _pendingPageTurns.isNotEmpty) {
                   _pendingPageTurns.clear();
-                  // הלחיצה הבאה תמשיך מיעד האנימציה הפעילה ולא מהתור שבוטל.
+                  // הלחיצה הבאה תמשיך מיעד האנימציה הפעילה.
                   _lastInitiatedTargetPage = _inFlightAnimationTarget;
                 }
-                return KeyEventResult.handled;
               }
+              return pageTurn ||
+                      key == LogicalKeyboardKey.arrowUp ||
+                      key == LogicalKeyboardKey.arrowDown
+                  ? KeyEventResult.handled
+                  : KeyEventResult.ignored;
             }
             return KeyEventResult.ignored;
           },
@@ -5151,7 +5145,7 @@ class _PdfBookScreenState extends State<PdfBookScreen>
     final fits = pdfFitZooms(
       shown: shown,
       viewSize: controller.viewSize,
-      margin: controller.params.margin,
+      margin: layout.margin,
     );
     return (
       shown: shown,

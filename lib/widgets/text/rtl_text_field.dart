@@ -1,6 +1,9 @@
 import 'dart:async';
+
 import 'package:otzaria/theme/app_tokens.dart';
+
 import 'dart:ui' as ui;
+
 import 'package:flutter/gestures.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
@@ -172,6 +175,7 @@ class _RtlTextFieldState extends State<RtlTextField> {
     _rawController = _HardBreakController(
       _effectiveController,
       _expandMapper.map(_effectiveController.value),
+      _collapseMapper,
     );
     _rawController!.addListener(_syncCleanFromRawLive);
     _effectiveController.addListener(_syncRawFromCleanExternally);
@@ -869,6 +873,28 @@ class _RtlTextFieldState extends State<RtlTextField> {
         return;
       }
 
+      void replaceSelection(String replacement) {
+        if (!mounted ||
+            controller != _effectiveController ||
+            controller.text != currentText) {
+          return;
+        }
+        if (controller.selection != currentSelection) {
+          controller.selection = currentSelection;
+        }
+        controller.value = TextEditingValue(
+          text: currentText.replaceRange(
+            currentSelection.start,
+            currentSelection.end,
+            replacement,
+          ),
+          selection: TextSelection.collapsed(
+            offset: currentSelection.start + replacement.length,
+          ),
+        );
+        widget.onChanged?.call(controller.text);
+      }
+
       switch (value) {
         case 'cut':
           final selectedText = currentText.substring(
@@ -876,17 +902,7 @@ class _RtlTextFieldState extends State<RtlTextField> {
             currentSelection.end,
           );
           await Clipboard.setData(ClipboardData(text: selectedText));
-          if (!mounted || controller != _effectiveController) return;
-          final textAfterCut =
-              currentText.substring(0, currentSelection.start) +
-              currentText.substring(currentSelection.end);
-          controller.text = textAfterCut;
-          controller.selection = TextSelection.collapsed(
-            offset: currentSelection.start,
-          );
-          // עדכון ידני: הקצאה ישירה ל-controller.text לא מפעילה את onChanged
-          // של TextField (זה מגיע רק מנתיב הקלט הפנימי של EditableText).
-          widget.onChanged?.call(textAfterCut);
+          replaceSelection('');
           break;
         case 'copy':
           final selectedText = currentText.substring(
@@ -904,17 +920,7 @@ class _RtlTextFieldState extends State<RtlTextField> {
             final pasted = _hardBreakWorkaroundActive
                 ? collapseHardBreaks(data!.text!)
                 : data!.text!;
-            final newText =
-                currentText.substring(0, currentSelection.start) +
-                pasted +
-                currentText.substring(currentSelection.end);
-            controller.text = newText;
-            controller.selection = TextSelection.collapsed(
-              offset: currentSelection.start + pasted.length,
-            );
-            // עדכון ידני: הקצאה ישירה ל-controller.text לא מפעילה את onChanged
-            // של TextField (זה מגיע רק מנתיב הקלט הפנימי של EditableText).
-            widget.onChanged?.call(newText);
+            replaceSelection(pasted);
           }
           break;
         case 'selectAll':
@@ -959,9 +965,13 @@ class _RtlTextFieldState extends State<RtlTextField> {
 /// מציג את העיצוב של ה-controller של הקורא כשהעוקף לא הוסיף לטקסט CR.
 class _HardBreakController extends TextEditingController {
   final TextEditingController source;
+  final HardBreakValueMapper _collapseMapper;
 
-  _HardBreakController(this.source, TextEditingValue initial)
-    : super.fromValue(initial);
+  _HardBreakController(
+    this.source,
+    TextEditingValue initial,
+    this._collapseMapper,
+  ) : super.fromValue(initial);
 
   @override
   TextEditingValue get value {
@@ -1010,15 +1020,19 @@ class _HardBreakController extends TextEditingController {
         withComposing: withComposing,
       );
     }
-    // הטקסט מורחב ל-\r\n, לכן מרחיבים גם את העלים של הקורא. בהרכבה (IME)
-    // ההיסטים אינם תואמים ונשארים עם הציור הרגיל.
-    final span = withComposing && value.isComposingRangeValid
-        ? null
-        : source.buildTextSpan(
+    // אם ההיסטים הנקיים של ההרכבה תואמים, אפשר להרחיב גם את העלים שלה.
+    final composing = withComposing && stored.isComposingRangeValid;
+    final sameComposing =
+        !composing ||
+        _collapseMapper.map(stored, matchingText: source.text).composing ==
+            source.value.composing;
+    final span = sameComposing
+        ? source.buildTextSpan(
             context: context,
             style: style,
-            withComposing: false,
-          );
+            withComposing: composing,
+          )
+        : null;
     final expanded = span?.children == null ? null : _expandSpan(span!);
     if (expanded != null &&
         expanded.toPlainText(includeSemanticsLabels: false) == text) {
